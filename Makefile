@@ -1,7 +1,7 @@
 CC = gcc
 WARNINGS = -Wall -Wextra -Wpedantic -Wshadow -Wstrict-overflow=5
 RELEASE_CFLAGS = -std=c99 $(WARNINGS) -O3 -march=native -I. -DNDEBUG
-DEBUG_CFLAGS = -std=c99 $(WARNINGS) -g3 -O0 -I.
+DEBUG_CFLAGS   = -std=c99 $(WARNINGS) -g3 -O0 -I.
 
 # Detect operating system
 ifeq ($(OS),Windows_NT)
@@ -22,19 +22,26 @@ else
     endif
 endif
 
-SRC = ./src/main.c
-RELEASE_OUT = ./build/game$(EXE_EXT)
-DEBUG_OUT = ./build/game_debug$(EXE_EXT)
+SRC          = $(wildcard ./src/*.c)
+RELEASE_OUT  = ./build/game$(EXE_EXT)
+DEBUG_OUT    = ./build/game_debug$(EXE_EXT)
 
-.PHONY: all debug release clean
+.PHONY: all release debug clean
 
 all: release
 
-release:
-	$(CC) $(RELEASE_CFLAGS) $(SRC) -o $(RELEASE_OUT) $(LDFLAGS) $(RELEASE_LDFLAGS)
+release: $(RELEASE_OUT)
 
-debug:
-	$(CC) $(DEBUG_CFLAGS) $(SRC) -o $(DEBUG_OUT) $(LDFLAGS)
+debug: $(DEBUG_OUT)
+
+$(RELEASE_OUT): $(SRC)
+	mkdir -p $(dir $@)
+	$(CC) $(RELEASE_CFLAGS) $^ -o $@ $(LDFLAGS) $(RELEASE_LDFLAGS)
+
+$(DEBUG_OUT): $(SRC)
+	mkdir -p $(dir $@)
+	$(CC) $(DEBUG_CFLAGS) $^ -o $@ $(LDFLAGS)
 
 clean:
-	rm -f $(RELEASE_OUT) $(DEBUG_OUT)
+	rm -rf build
+
