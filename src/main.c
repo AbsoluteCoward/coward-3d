@@ -1,10 +1,16 @@
 #include <stdio.h>
 #include "../include/raylib.h"
 #include "../include/raymath.h"
+#define SOA_SCORE(struct_size, hot_bytes) \ (((double)((struct_size + 63) / 64)) / ((double)(hot_bytes) / 64.0))
+
 const float GRAVITY = 9.81f;
+const float JUMP_POWER = 8.0f;
 const Color DEFUALT_PLAYER_COLOR = {255, 255, 255, 255};
-const int screenWidth = 1366;
-const int screenHeight = 768;
+int renderWidth = 320;
+int renderHeight = 240;
+int screenWidth = 1366;
+int screenHeight = 768;
+RenderTexture2D renderTarget;
 typedef struct {
     Vector3 position;
     Vector3 size;
@@ -28,10 +34,19 @@ Vector2 GetInputDirection(void) {
     };
     return direction;
 }
+void ComputeRenderResolutionForWindowAspect(
+    int windowPixelWidth,
+    int windowPixelHeight,
+    int fixedRenderPixelHeight,
+    int* outRenderPixelWidth,
+    int* outRenderPixelHeight
+) {
+    float windowAspectRatio = (float)windowPixelWidth / (float)windowPixelHeight;
+    *outRenderPixelHeight = fixedRenderPixelHeight;
+    *outRenderPixelWidth = (int)((float)fixedRenderPixelHeight * windowAspectRatio);
+}
 void HandlePlayer(Player* player, GameCamera* camera, float delta) {
-    if (!player->isOnGround) {
-        player->velocity.y -= GRAVITY * delta;
-    }
+    if (!player->isOnGround) { player->velocity.y -= GRAVITY * delta; }
     if (player->isOnGround && IsKeyDown(KEY_SPACE)) {
         player->velocity.y = 8.0f;
         player->isOnGround = false;
@@ -48,9 +63,16 @@ void HandlePlayer(Player* player, GameCamera* camera, float delta) {
     }
 }
 int main(void) {
-    SetConfigFlags(FLAG_MSAA_4X_HINT);
-    //SetConfigFlags(FLAG_VSYNC_HINT);
-    InitWindow(screenWidth, screenHeight, "Negredo");
+    InitWindow(screenWidth, screenHeight, "Coward 3D!");
+    ComputeRenderResolutionForWindowAspect(
+        screenWidth,
+        screenHeight,
+        renderHeight,
+        &renderWidth,
+        &renderHeight
+    );
+    renderTarget = LoadRenderTexture(renderWidth, renderHeight);
+    SetTextureFilter(renderTarget.texture, TEXTURE_FILTER_POINT);
     GameCamera camera = {
         .rawCamera = (Camera3D){
             .position = {0.0f, 10.0f, 10.0f},
@@ -77,7 +99,10 @@ int main(void) {
         float delta = GetFrameTime();
         inputDirection = GetInputDirection();
         camera.targetPosition = Vector3Add(player.position, (Vector3){0.0f, player.size.y / 2.0f, 0.0f});
-        camera.rawCamera.target = Vector3Lerp(camera.rawCamera.target, camera.targetPosition, 0.01f); 
+        camera.rawCamera.target = Vector3Lerp(
+            camera.rawCamera.target, 
+            camera.targetPosition, 
+            2.0f * delta); 
         camera.forward = Vector3Subtract(camera.rawCamera.position, camera.rawCamera.target);
         camera.forward.y = 0;
         camera.forward = Vector3Normalize(camera.forward);
@@ -85,13 +110,43 @@ int main(void) {
         camera.right = Vector3Normalize(camera.right);
         player.wishDirection = Vector3Normalize(Vector3Add(Vector3Scale(camera.forward, inputDirection.y), Vector3Scale(camera.right, inputDirection.x)));
         HandlePlayer(&player, &camera, delta);
-        BeginDrawing();
-            ClearBackground(CLITERAL(Color){ 116, 122, 131, 255 });
+        BeginTextureMode(renderTarget);
+            ClearBackground((Color){116, 122, 131, 255});
             BeginMode3D(camera.rawCamera);
-                DrawGrid(20, 2.0f);
-                DrawCubeV(Vector3Add(player.position, (Vector3){0.0f, player.size.y / 2.0f, 0.0f}), player.size, player.color);
+                DrawGrid(40, 4.0f);
+                DrawCubeV(
+                    Vector3Add(player.position, (Vector3){0.0f, player.size.y / 2.0f, 0.0f}),
+                    player.size,
+                    player.color
+                );
             EndMode3D();
-            DrawFPS(10, 10);
+        EndTextureMode();
+        BeginDrawing();
+            ClearBackground((Color){116, 122, 131, 255});
+            Rectangle sourceRenderTextureRect = {
+                0.0f,
+                0.0f,
+                (float)renderTarget.texture.width,
+                -(float)renderTarget.texture.height
+            };
+            float renderToWindowScale = fminf(
+                (float)screenWidth  / (float)renderWidth,
+                (float)screenHeight / (float)renderHeight
+            );
+            Rectangle destinationWindowRect = {
+                (screenWidth  - (renderWidth  * renderToWindowScale)) * 0.5f,
+                (screenHeight - (renderHeight * renderToWindowScale)) * 0.5f,
+                renderWidth  * renderToWindowScale,
+                renderHeight * renderToWindowScale
+            };
+            DrawTexturePro(
+                renderTarget.texture,
+                sourceRenderTextureRect,
+                destinationWindowRect,
+                (Vector2){ 0.0f, 0.0f },
+                0.0f,
+                WHITE
+            );
         EndDrawing();
     }
     CloseWindow();
