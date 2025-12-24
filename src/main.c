@@ -6,11 +6,14 @@
 const float GRAVITY = 9.81f;
 const float JUMP_POWER = 8.0f;
 const Color DEFUALT_PLAYER_COLOR = {255, 255, 255, 255};
+const Color LOVELY_COLOR = {62, 70, 55, 255}; 
 int renderWidth = 320;
 int renderHeight = 240;
 int screenWidth = 1366;
 int screenHeight = 768;
 RenderTexture2D renderTarget;
+Model playerModel;
+Model levelModel;
 typedef struct {
     Vector3 position;
     Vector3 size;
@@ -26,7 +29,7 @@ typedef struct {
     Vector3 forward;
     Vector3 right;
     Vector3 targetPosition;
-} GameCamera;
+} PlayerCamera;
 Vector2 GetInputDirection(void) {
     Vector2 direction = {
         IsKeyDown(KEY_D) - IsKeyDown(KEY_A),
@@ -45,7 +48,7 @@ void ComputeRenderResolutionForWindowAspect(
     *outRenderPixelHeight = fixedRenderPixelHeight;
     *outRenderPixelWidth = (int)((float)fixedRenderPixelHeight * windowAspectRatio);
 }
-void HandlePlayer(Player* player, GameCamera* camera, float delta) {
+void HandlePlayer(Player* player, PlayerCamera* camera, float delta) {
     if (!player->isOnGround) { player->velocity.y -= GRAVITY * delta; }
     if (player->isOnGround && IsKeyDown(KEY_SPACE)) {
         player->velocity.y = 8.0f;
@@ -62,6 +65,33 @@ void HandlePlayer(Player* player, GameCamera* camera, float delta) {
         player->isOnGround = true;
     }
 }
+float WrapAngle(float a) {
+    while (a > PI) a -= PI*2.0f;
+    while (a < -PI) a += PI*2.0f;
+    return a;
+}
+float LerpAngle(float a, float b, float t) {
+    float diff = WrapAngle(b - a);
+    return a + diff * t;
+}
+void DrawPlayer(Model playerModel, Vector3 position, Vector3 wishDirection) {
+    static float yaw = 0.0f;
+    static float targetYaw = 0.0f;
+    if (Vector3LengthSqr(wishDirection) > 0.0001f) {
+        wishDirection = Vector3Normalize(wishDirection);
+        targetYaw = atan2f(-wishDirection.x, -wishDirection.z);
+    }
+    float turnSpeed = 8.0f * GetFrameTime();
+    yaw = LerpAngle(yaw, targetYaw, turnSpeed);
+    DrawModelEx(
+        playerModel,
+        position,
+        (Vector3){ 0, 1, 0 },
+        yaw * RAD2DEG,
+        (Vector3){ 1, 1, 1 },
+        WHITE
+    );
+}
 int main(void) {
     InitWindow(screenWidth, screenHeight, "Coward 3D!");
     ComputeRenderResolutionForWindowAspect(
@@ -73,13 +103,13 @@ int main(void) {
     );
     renderTarget = LoadRenderTexture(renderWidth, renderHeight);
     SetTextureFilter(renderTarget.texture, TEXTURE_FILTER_POINT);
-    GameCamera camera = {
+    PlayerCamera camera = {
         .rawCamera = (Camera3D){
-            .position = {0.0f, 10.0f, 10.0f},
+            .position = {0.0f, 3.0f, 5.0f},
             .target = {0.0f, 0.0f, 0.0f},
             .up = {0.0f, 1.0f, 0.0f},
             .fovy = 90.0f, 
-            .projection = CAMERA_PERSPECTIVE
+            .projection = CAMERA_PERSPECTIVE 
         },
         .forward = (Vector3){0.0f, 0.0f, 0.0f},
         .right = (Vector3){0.0f, 0.0f, 0.0f},
@@ -94,7 +124,9 @@ int main(void) {
         .moveSpeed = 5.0f,
         .isOnGround = true
     };
-    SetTargetFPS(240);
+    playerModel = LoadModel("assets/ShadowSlink.gltf");
+    levelModel = LoadModel("assets/Bogmire Arena/bogmire-arena.obj");
+    SetTargetFPS(0);
     while (!WindowShouldClose()) {
         float delta = GetFrameTime();
         inputDirection = GetInputDirection();
@@ -111,18 +143,14 @@ int main(void) {
         player.wishDirection = Vector3Normalize(Vector3Add(Vector3Scale(camera.forward, inputDirection.y), Vector3Scale(camera.right, inputDirection.x)));
         HandlePlayer(&player, &camera, delta);
         BeginTextureMode(renderTarget);
-            ClearBackground((Color){116, 122, 131, 255});
+            ClearBackground(LOVELY_COLOR);
             BeginMode3D(camera.rawCamera);
                 DrawGrid(40, 4.0f);
-                DrawCubeV(
-                    Vector3Add(player.position, (Vector3){0.0f, player.size.y / 2.0f, 0.0f}),
-                    player.size,
-                    player.color
-                );
-            EndMode3D();
-        EndTextureMode();
-        BeginDrawing();
-            ClearBackground((Color){116, 122, 131, 255});
+                DrawPlayer(playerModel, player.position, player.wishDirection);
+                DrawModel(levelModel, (Vector3){0.0f, 0.0f, 0.0f}, 2.0f, WHITE);
+                EndMode3D();
+            EndTextureMode();
+            BeginDrawing();
             Rectangle sourceRenderTextureRect = {
                 0.0f,
                 0.0f,
@@ -147,6 +175,7 @@ int main(void) {
                 0.0f,
                 WHITE
             );
+            DrawFPS(10, 10);
         EndDrawing();
     }
     CloseWindow();

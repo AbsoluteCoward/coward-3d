@@ -12,7 +12,7 @@ else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
         LDFLAGS = ./lib/libraylib.a -lGL -lm -lpthread -ldl -lrt -lX11
-        RELEASE_LDFLAGS = -s -static
+        RELEASE_LDFLAGS = -s 
         EXE_EXT =
     endif
     ifeq ($(UNAME_S),Darwin)
