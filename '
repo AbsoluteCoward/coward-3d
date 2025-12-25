@@ -296,8 +296,8 @@ int main(void) {
         float delta = GetFrameTime();
         inputDirection = GetInputDirection();
         camera.targetPosition = Vector3Add(player.collisionCapsule.position, (Vector3){0.0f, player.collisionCapsule.halfHeight, 0.0f});
-        camera.rawCamera.position = Vector3Add(camera.targetPosition, (Vector3){0.0f, 4.0f, 5.0f});
-        camera.rawCamera.target = Vector3Lerp(camera.rawCamera.target, player.collisionCapsule.position, 2.01f * delta); 
+        camera.rawCamera.position = Vector3Add(camera.targetPosition, (Vector3){0.0f, 4, 5.0f});
+        camera.rawCamera.target = Vector3Lerp(camera.rawCamera.target, player.collisionCapsule.position, 0.01f * delta); 
         camera.forward = Vector3Subtract(camera.rawCamera.position, camera.rawCamera.target);
         camera.forward.y = 0;
         camera.forward = Vector3Normalize(camera.forward);
@@ -313,7 +313,6 @@ int main(void) {
             BeginMode3D(camera.rawCamera);
                 DrawGrid(40, 4.0f);
                 DrawCube(player.collisionCapsule.position, 1, 1, 1, RED);
-                DrawCube(camera.rawCamera.target, 1, 1, 1, BLUE);
                 DrawPlayer(playerModel, player.collisionCapsule.position, player.wishDirection);
                 DrawModel(levelModel, (Vector3){0.0f, 0.0f, 0.0f}, 2.0f, WHITE);
             EndMode3D();
